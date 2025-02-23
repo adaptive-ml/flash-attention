@@ -67,7 +67,12 @@ void run_flash_fwd(Flash_fwd_params &params, cudaStream_t stream) {
     // However, if Varlen (e.g., during decode where we have max_seqlens), using PersistentScheduler is better
     // since we'll avoid launching a bunch of thread blocks that immediately exit.
     // On Sm80, noncausal persistent seems a bit slower.
-    using Scheduler = std::conditional_t<Arch >= 90 ? (Split && !Varlen) : !((Is_causal && !Varlen) || (Varlen && Split)), SchedulerSingleTile, SchedulerPersistent>;
+    // using Scheduler = std::conditional_t<Arch >= 90 ? (Split && !Varlen) : !((Is_causal && !Varlen) || (Varlen &&
+    // Split)), SchedulerSingleTile, SchedulerPersistent>;
+    using Scheduler =
+        flash::VarlenDynamicPersistentTileScheduler<kBlockM, CollectiveMainloop::NumMmaThreads, NumProducerThreads,
+                                                    Split, PackGQA, Arch >= 90 /*WarpSpecialized*/>;
+
     using AttnKernel = std::conditional_t<
         Arch >= 90,
         flash::enable_sm90_or_later<flash::FlashAttnFwdSm90<CollectiveMainloop, CollectiveEpilogue, Scheduler>>,

@@ -159,6 +159,7 @@ public:
         TiledMma tiled_mma;
 
         scheduler.init_consumer();
+        params.scheduler.num_batch = constants.num_sequences;
 
         int warp_idx = cutlass::canonical_warp_idx_sync();
         CUTLASS_PRAGMA_NO_UNROLL
