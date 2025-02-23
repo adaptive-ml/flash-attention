@@ -357,7 +357,8 @@ public:
 
     // Device side kernel params
     struct Params {
-        int num_head, num_batch;
+        int num_head;
+        mutable int num_batch;
         int const qhead_per_khead;
         int const seqlen;
         cutlass::FastDivmod nsplits_divmod;
