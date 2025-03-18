@@ -159,7 +159,6 @@ public:
         TiledMma tiled_mma;
 
         scheduler.init_consumer();
-        params.scheduler.num_batch = constants.num_sequences;
 
         int warp_idx = cutlass::canonical_warp_idx_sync();
         CUTLASS_PRAGMA_NO_UNROLL
@@ -189,6 +188,7 @@ public:
                 params.mainloop.cu_seqlens_q, params.mainloop.cu_seqlens_k, params.mainloop.cu_seqlens_k_new,
                 params.mainloop.seqused_q, params.mainloop.seqused_k, params.mainloop.leftpad_k,
             };
+
             if constexpr (AppendKV) {
                 bool tile_new_valid = collective_mainloop.store_kv_new(
                     params.mainloop, threadIdx.x, shared_storage, seqlen_info, block_coord);
@@ -206,10 +206,9 @@ public:
                 // Write 0 to gO and -inf to gLSE.
                 // If Split, we don't have to write 0 to O if the mha_combine kernel is used, since it will
                 // not use the value of O if LSE is -inf.
-                collective_epilogue.template store_zero<!Split /*Clear_O*/>(params.epilogue, threadIdx.x, block_coord);
+                collective_epilogue.template store_zero<true>(params.epilogue, threadIdx.x, block_coord);
             }
         }
-
     }
 
 };
