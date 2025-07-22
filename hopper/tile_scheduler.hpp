@@ -519,7 +519,7 @@ public:
         bool
         is_valid(Params const& params) const {
             // if (blockIdx.x >= 0 && (threadIdx.x == 128 || threadIdx.x == 0)) { printf("blockIdx.x = %d, threadIdx.x = %d, checking valid, bidb = %d, params.num_batch = %d\n", blockIdx.x, threadIdx.x, bidb, params.num_batch); }
-            return bidb < params.num_batch;
+            return bidb < constants.num_sequences;
         }
 
         CUTLASS_DEVICE
@@ -557,9 +557,9 @@ public:
             int seqlen = params.seqlen * (!PackGQA ? 1 : params.qhead_per_khead);
             if (seqlen > kBlock) {
                 if (params.seqused) {
-                    seqlen = batch_idx < params.num_batch ? params.seqused[batch_idx] : 0;
+                    seqlen = batch_idx < constants.num_sequences ? params.seqused[batch_idx] : 0;
                 } else if (params.cu_seqlens) {
-                    int cur_cu_seqlen = batch_idx <= params.num_batch ? params.cu_seqlens[batch_idx] : 0;
+                    int cur_cu_seqlen = batch_idx <= constants.num_sequences ? params.cu_seqlens[batch_idx] : 0;
                     int next_cu_seqlen = __shfl_down_sync(0xffffffff, cur_cu_seqlen, 1);
                     seqlen = next_cu_seqlen - cur_cu_seqlen;
                 } else {
@@ -567,7 +567,7 @@ public:
                 }
                 if constexpr (PackGQA) { seqlen *= params.qhead_per_khead; }
             }
-            return batch_idx < params.num_batch && lane < cutlass::NumThreadsPerWarp - 1
+            return batch_idx < constants.num_sequences && lane < cutlass::NumThreadsPerWarp - 1
                 ? cute::ceil_div(seqlen, kBlock) : 0;
                 // ? params.num_m_blocks_ptr[batch_idx] : 0;
         };
@@ -602,11 +602,11 @@ public:
         // if (threadIdx.x == 0 && blockIdx.x == 0) { printf("tile_idx = %d, group_end_tile = %d, num_m_blocks_cumulative = %d, m_blocks_in_group = %d\n", current_work.tile_idx, group_end_tile, num_m_blocks_cumulative, m_blocks_in_group); }
         while (group_end_tile <= next_tile_idx) {
             bidb += cutlass::NumThreadsPerWarp - 1;
-            if (bidb >= params.num_batch) {
+            if (bidb >= constants.num_sequences) {
                 // if (blockIdx.x <= 9 && threadIdx.x == 0) {
                 //     printf("Returning early, blockIdx.x = %d, threadIdx.x = %d, bidb = %d, num_m_blocks = %d, next_tile_idx = %d, group_end_tile = %d, m_blocks_in_group = %d\n", blockIdx.x, threadIdx.x, bidb, num_m_blocks, next_tile_idx, group_end_tile, m_blocks_in_group);
                 // }
-                return {next_tile_idx, 0, 0, params.num_batch};
+                return {next_tile_idx, 0, 0, constants.num_sequences};
             }
             num_m_blocks = get_num_m_blocks(bidb);
             num_splits = get_num_splits(bidb);
